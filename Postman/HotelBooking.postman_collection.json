@@ -109,7 +109,7 @@
 							"});",
 							"",
 							"//pm.test(\"Response length is correct\", function () {",
-							"//    var jsonData = pm.response.json();",
+							"//    var jsonData = pm.response.json();",a
 							"//    pm.expect(jsonData.length).to.eql(2);",
 							"//});"
 						],
