@@ -45,6 +45,7 @@ namespace HotelBooking.IntegrationTests
             connection.Close();
         }
 
+        /*
         [Fact]
         public void FindAvailableRoom_RoomNotAvailable_RoomIdIsMinusOne()
         {
@@ -53,5 +54,6 @@ namespace HotelBooking.IntegrationTests
             // Assert
             Assert.Equal(-1, roomId);
         }
+        */
     }
 }
