@@ -97,6 +97,190 @@ namespace HotelBooking.UnitTests
         }
 
         #endregion
+        
+        #region FindAvailableRoom Tests (MC/DC)
+        //1. Start date is today or earlier, triggering an exception.
+        [Fact]
+        public void FindAvailableRoom_StartDateToday_ThrowsArgumentException()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today;
+            DateTime endDate = DateTime.Today.AddDays(1);
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() => bookingManager.FindAvailableRoom(startDate, endDate));
+        }
+        
+        //2. Start date is after the end date, triggering an exception.
+        //See: FindAvailableRoom_StartDateAfterEndDate_ThrowsArgumentException()
+        
+        //3. Valid date range; proceeds to room availability.
+        [Fact]
+        public void FindAvailableRoom_ValidDateRange_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(10);
+            DateTime endDate = DateTime.Today.AddDays(12);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 }, new() { Id = 2 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no conflicting bookings)
+            var bookings = new List<Booking>();
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            mockRoomRepository.Verify(r => r.GetAll(), Times.Once);
+            mockBookingRepository.Verify(b => b.GetAll(), Times.Once);
+            
+            Assert.NotEqual(-1, roomId);
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        
+        //4.  Start and end dates are both before the room’s booked start date.
+        [Fact]
+        public void FindAvailableRoom_StartDateAndEndDateBeforeRoomBooking_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(10);
+            DateTime endDate = DateTime.Today.AddDays(12);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 }, new() { Id = 2 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no conflicting bookings)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(15), EndDate = DateTime.Today.AddDays(17), IsActive = true },
+                new () { RoomId = 2, StartDate = DateTime.Today.AddDays(15), EndDate = DateTime.Today.AddDays(17), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId);
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        
+        //5. Start and end dates are both after the room’s booked end date.
+        [Fact]
+        public void FindAvailableRoom_StartDateAndEndDateAfterRoomBooking_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(10);
+            DateTime endDate = DateTime.Today.AddDays(12);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 }, new() { Id = 2 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no conflicting bookings)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true },
+                new () { RoomId = 2, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId);
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        
+        //6. Start and end dates overlap with the booking dates.
+        [Fact]
+        public void FindAvailableRoom_StartDateAndEndDateOverlapRoomBooking_ReturnsMinusOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(10);
+            DateTime endDate = DateTime.Today.AddDays(12);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 }, new() { Id = 2 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no conflicting bookings)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(10), EndDate = DateTime.Today.AddDays(12), IsActive = true },
+                new () { RoomId = 2, StartDate = DateTime.Today.AddDays(10), EndDate = DateTime.Today.AddDays(12), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId);
+        }
+        
+        //7. Start date overlaps with a booking's period but not the end date.
+        [Fact]
+        public void FindAvailableRoom_StartDateOverlapRoomBooking_ReturnsMinusOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(10);
+            DateTime endDate = DateTime.Today.AddDays(12);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 }, new() { Id = 2 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no conflicting bookings)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(10), EndDate = DateTime.Today.AddDays(15), IsActive = true },
+                new () { RoomId = 2, StartDate = DateTime.Today.AddDays(10), EndDate = DateTime.Today.AddDays(15), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId);
+        }
+        
+        //8. Dates entirely outside the booking window.
+        [Fact]
+        public void FindAvailableRoom_DatesOutsideRoomBooking_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(10);
+            DateTime endDate = DateTime.Today.AddDays(12);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 }, new() { Id = 2 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no conflicting bookings)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true },
+                new () { RoomId = 2, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId);
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        
+        
+        #endregion
 
         #region CreateBooking Tests
 
