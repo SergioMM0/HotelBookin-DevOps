@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HotelBooking.Core;
+using Microsoft.AspNetCore.Routing;
 using Moq;
 using Xunit;
 
@@ -192,6 +193,323 @@ namespace HotelBooking.UnitTests
             Assert.Equal("The start date cannot be later than the end date.", ex.Message);
         }
 
+        #endregion
+
+        #region GetFullyOccupiedDates (MCC) Tests
+        
+        //1: Full overlap with the booking dates
+        [Fact]
+        public void FindAvailableRoom_FullOverlap_ReturnsNegativeOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(5);
+            DateTime endDate = DateTime.Today.AddDays(7);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (full overlap)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId); // Expect no available room
+        }
+
+        //2: Overlaps with the start date of the booking.
+        [Fact]
+        public void FindAvailableRoom_OverlapWithStartDate_ReturnsNegativeOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(4);
+            DateTime endDate = DateTime.Today.AddDays(6);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (overlap with start date)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId); // Expect no available room
+        }
+        //3: Overlaps with the end date of the booking.
+        [Fact]
+        public void FindAvailableRoom_OverlapWithEndDate_ReturnsNegativeOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(6);
+            DateTime endDate = DateTime.Today.AddDays(8);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (overlap with end date)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId); // Expect no available room
+        }
+        //4: Partial overlap (invalid scenario).
+        [Fact]
+        public void FindAvailableRoom_PartialOverlap_ReturnsNegativeOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(6);
+            DateTime endDate = DateTime.Today.AddDays(8);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (partial overlap)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId); // Expect no available room
+        }
+        //5: Overlaps at the start, with an earlier end date.
+        [Fact]
+        public void FindAvailableRoom_OverlapAtStart_EarlierEndDate_ReturnsNegativeOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(5);
+            DateTime endDate = DateTime.Today.AddDays(6);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (overlap at start, earlier end date)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId); // Expect no available room
+        }
+        //6: No overlap, completely outside the booking period.
+        [Fact]
+        public void FindAvailableRoom_NoOverlap_CompletelyOutsideBookingPeriod_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(8);
+            DateTime endDate = DateTime.Today.AddDays(10);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no overlap, completely outside booking period)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId); // Expect a valid room ID
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        //7: Overlaps at the end, starting after the booking begins.
+        [Fact]
+        public void FindAvailableRoom_OverlapAtEnd_ReturnsNegativeOne()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(4);
+            DateTime endDate = DateTime.Today.AddDays(6);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (overlap at the end)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.Equal(-1, roomId); // Expect no available room
+        }
+
+        //8: No overlap, completely outside the booking period.
+        [Fact]
+        public void FindAvailableRoom_NoOverlap_BeforeBookingPeriod_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(1);
+            DateTime endDate = DateTime.Today.AddDays(3);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no overlap, before booking period)
+            var bookings = new List<Booking>
+    {
+        new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+    };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId); // Expect a valid room ID
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        //9: No overlap, completely outside the booking period.
+        [Fact]
+        public void FindAvailableRoom_NoOverlap_AfterBookingPeriod_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(8);
+            DateTime endDate = DateTime.Today.AddDays(10);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no overlap, after booking period)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId); // Expect a valid room ID
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        //10: No overlap, completely outside the booking period.
+        // Test cases 10-12 are similar to 8 and 9, with different dates
+        /*
+        [Fact]
+        public void FindAvailableRoom_NoOverlap10_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(12);
+            DateTime endDate = DateTime.Today.AddDays(15);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no overlap)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId); // Expect a valid room ID
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+
+        //11: No overlap, completely outside the booking period.
+        [Fact]
+        public void FindAvailableRoom_NoOverlap11_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today;
+            DateTime endDate = DateTime.Today.AddDays(1);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no overlap)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId); // Expect a valid room ID
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+
+        //12: No overlap, completely outside the booking period.
+        [Fact]
+        public void FindAvailableRoom_NoOverlap12_ReturnsValidRoomId()
+        {
+            // Arrange
+            DateTime startDate = DateTime.Today.AddDays(18);
+            DateTime endDate = DateTime.Today.AddDays(20);
+
+            // Mock room repository
+            var rooms = new List<Room> { new() { Id = 1 } };
+            mockRoomRepository.Setup(r => r.GetAll()).Returns(rooms);
+
+            // Mock booking repository (no overlap)
+            var bookings = new List<Booking>
+            {
+                new () { RoomId = 1, StartDate = DateTime.Today.AddDays(5), EndDate = DateTime.Today.AddDays(7), IsActive = true }
+            };
+            mockBookingRepository.Setup(b => b.GetAll()).Returns(bookings);
+
+            // Act
+            int roomId = bookingManager.FindAvailableRoom(startDate, endDate);
+
+            // Assert
+            Assert.NotEqual(-1, roomId); // Expect a valid room ID
+            Assert.Contains(roomId, rooms.Select(r => r.Id));
+        }
+        */
         #endregion
     }
 }
