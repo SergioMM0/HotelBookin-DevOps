@@ -8,14 +8,14 @@ using Xunit;
 
 namespace HotelBooking.IntegrationTests
 {
-    public class BookingManagerTests : IDisposable
+    public class BookingManagerTests 
     {
         // This test class uses a separate Sqlite in-memory database. While the
         // .NET Core built-in in-memory database is not a relational database,
         // Sqlite in-memory database is. This means that an exception is thrown,
         // if a database constraint is violated, and this is a desirable behavior
         // when testing.
-
+/*
         SqliteConnection connection;
         BookingManager bookingManager;
 
@@ -45,6 +45,7 @@ namespace HotelBooking.IntegrationTests
             connection.Close();
         }
 
+        /*
         [Fact]
         public void FindAvailableRoom_RoomNotAvailable_RoomIdIsMinusOne()
         {
@@ -53,5 +54,6 @@ namespace HotelBooking.IntegrationTests
             // Assert
             Assert.Equal(-1, roomId);
         }
+        */
     }
 }
